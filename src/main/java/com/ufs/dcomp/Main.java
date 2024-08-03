@@ -33,6 +33,7 @@ public class Main {
                 public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties,
                         byte[] body) throws IOException {
                     String messageReceived = new String(body, "UTF-8");
+
                     safePrintln("\n[x] Mensagem recebida: " + messageReceived);
                     safePrint(target + " >> ");
                 }
@@ -57,6 +58,7 @@ public class Main {
                 continue;
             }
 
+            // Publicando a mensagem com as propriedades
             channel.basicPublish("", target, null, message.getBytes("UTF-8"));
         }
 
