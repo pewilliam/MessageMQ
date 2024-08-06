@@ -1,8 +1,12 @@
 package com.ufs.dcomp;
 
-import java.util.Scanner;
 import com.rabbitmq.client.*;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Scanner;
+import org.json.JSONObject;
 
 public class Main {
     private static String target = "";
@@ -11,60 +15,94 @@ public class Main {
 
     public static void main(String[] argv) throws Exception {
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost("34.228.100.244"); // Alterar
-        factory.setUsername("admin"); // Alterar
-        factory.setPassword("PedroW2001"); // Alterar
+        factory.setHost("localhost"); // Alterar
+        factory.setUsername("peredo"); // Alterar
+        factory.setPassword("peredo"); // Alterar
         factory.setVirtualHost("/");
         Connection connection = factory.newConnection();
         Channel channel = connection.createChannel();
-        Scanner sc = new Scanner(System.in);
+        Scanner sc = new Scanner(System.in, StandardCharsets.UTF_8.name());
 
         System.out.print("User: ");
         currentUser = sc.nextLine();
 
+        // Declara a fila para o usuário atual
         channel.queueDeclare(currentUser, false, false, false, null);
         safePrintln("\nLogado com sucesso!");
 
-        System.out.print("Destinatário: ");
-        target = sc.nextLine();
+        // Inicializa o prompt
+        safePrint(">> ");
 
         while (true) {
+            // Define o consumidor para ouvir mensagens
             Consumer consumer = new DefaultConsumer(channel) {
+                @Override
                 public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties,
                         byte[] body) throws IOException {
-                    String messageReceived = new String(body, "UTF-8");
+                    // Parse the message body
+                    String jsonMessage = new String(body, StandardCharsets.UTF_8);
+                    JSONObject jsonObject = new JSONObject(jsonMessage);
 
-                    safePrintln("\n[x] Mensagem recebida: " + messageReceived);
-                    safePrint(target + " >> ");
+                    String sender = jsonObject.getString("sender");
+                    String timestamp = jsonObject.getString("timestamp");
+                    String msgContent = jsonObject.getString("message");
+
+                    // Format and print the received message
+                    String formattedMessage = String.format("(%s) %s diz: %s", timestamp, sender, msgContent);
+                    safePrintln("\n" + formattedMessage);
+                    // Atualiza o prompt com o destinatário atual
+                    safePrint(target + ">> ");
                 }
             };
 
+            // Consome as mensagens da fila do usuário atual
             channel.basicConsume(currentUser, true, consumer);
 
-            safePrint(target + " >> ");
-            message = sc.nextLine();
+            while (true) {
+                // Recebe a mensagem do usuário
+                message = sc.nextLine();
 
-            if (message.isEmpty()) {
-                continue;
+                if (message.toLowerCase().equals("sair")) {
+                    break;
+                }
+
+                if (message.startsWith("@")) {
+                    target = message.substring(1).trim();
+                    // Atualiza o prompt para o novo destinatário
+                    safePrint(target + ">> ");
+                    continue;
+                }
+
+                if (target.isEmpty()) {
+                    safePrintln("Por favor, defina um destinatário usando @nome.");
+                    safePrint(">> ");
+                    continue;
+                }
+
+                if (message.isEmpty() || target.isEmpty()) {
+                    safePrint(target + ">> ");
+                    continue;
+                }
+
+                // Prepare the message with sender and timestamp
+                String formattedMessage = String.format(
+                        "{\"sender\":\"%s\", \"timestamp\":\"%s\", \"message\":\"%s\"}",
+                        currentUser,
+                        new SimpleDateFormat("dd/MM/yyyy 'às' HH:mm:ss").format(new Date()),
+                        message);
+
+                // Publish the message
+                channel.basicPublish("", target, null, formattedMessage.getBytes(StandardCharsets.UTF_8));
+
+                // Atualiza o prompt após enviar a mensagem
+                safePrint(target + ">> ");
             }
 
-            if (message.toLowerCase().equals("sair")) {
-                break;
-            }
-
-            if (message.contains("@")) {
-                target = message.substring(message.lastIndexOf("@") + 1);
-                safePrint("");
-                continue;
-            }
-
-            // Publicando a mensagem com as propriedades
-            channel.basicPublish("", target, null, message.getBytes("UTF-8"));
+            // Fechamento do scanner e canal
+            sc.close();
+            channel.close();
+            connection.close();
         }
-
-        sc.close();
-        channel.close();
-        connection.close();
     }
 
     private static void safePrintln(String s) {
