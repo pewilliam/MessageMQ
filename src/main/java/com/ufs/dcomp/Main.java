@@ -15,9 +15,9 @@ public class Main {
 
     public static void main(String[] argv) throws Exception {
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost("localhost"); // Alterar
-        factory.setUsername("peredo"); // Alterar
-        factory.setPassword("peredo"); // Alterar
+        factory.setHost("localhost");
+        factory.setUsername("peredo");
+        factory.setPassword("peredo");
         factory.setVirtualHost("/");
         Connection connection = factory.newConnection();
         Channel channel = connection.createChannel();
@@ -39,7 +39,6 @@ public class Main {
                 @Override
                 public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties,
                         byte[] body) throws IOException {
-                    // Parse the message body
                     String jsonMessage = new String(body, StandardCharsets.UTF_8);
                     JSONObject jsonObject = new JSONObject(jsonMessage);
 
@@ -47,10 +46,8 @@ public class Main {
                     String timestamp = jsonObject.getString("timestamp");
                     String msgContent = jsonObject.getString("message");
 
-                    // Format and print the received message
                     String formattedMessage = String.format("(%s) %s diz: %s", timestamp, sender, msgContent);
                     safePrintln("\n" + formattedMessage);
-                    // Atualiza o prompt com o destinatário atual
                     safePrint(target + ">> ");
                 }
             };
@@ -68,7 +65,6 @@ public class Main {
 
                 if (message.startsWith("@")) {
                     target = message.substring(1).trim();
-                    // Atualiza o prompt para o novo destinatário
                     safePrint(target + ">> ");
                     continue;
                 }
@@ -84,21 +80,17 @@ public class Main {
                     continue;
                 }
 
-                // Prepare the message with sender and timestamp
                 String formattedMessage = String.format(
                         "{\"sender\":\"%s\", \"timestamp\":\"%s\", \"message\":\"%s\"}",
                         currentUser,
                         new SimpleDateFormat("dd/MM/yyyy 'às' HH:mm:ss").format(new Date()),
                         message);
 
-                // Publish the message
                 channel.basicPublish("", target, null, formattedMessage.getBytes(StandardCharsets.UTF_8));
 
-                // Atualiza o prompt após enviar a mensagem
                 safePrint(target + ">> ");
             }
 
-            // Fechamento do scanner e canal
             sc.close();
             channel.close();
             connection.close();
