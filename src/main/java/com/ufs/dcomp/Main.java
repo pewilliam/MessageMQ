@@ -30,71 +30,67 @@ public class Main {
         channel.queueDeclare(currentUser, false, false, false, null);
         safePrintln("\nLogado com sucesso!");
 
-        // Inicializa o prompt
         safePrint(">> ");
 
-        while (true) {
-            // Define o consumidor para ouvir mensagens
-            Consumer consumer = new DefaultConsumer(channel) {
-                @Override
-                public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties,
-                        byte[] body) throws IOException {
-                    String jsonMessage = new String(body, StandardCharsets.UTF_8);
-                    JSONObject jsonObject = new JSONObject(jsonMessage);
+        // Define o consumidor para ouvir mensagens
+        Consumer consumer = new DefaultConsumer(channel) {
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties,
+                    byte[] body) throws IOException {
+                String jsonMessage = new String(body, StandardCharsets.UTF_8);
+                JSONObject jsonObject = new JSONObject(jsonMessage);
 
-                    String sender = jsonObject.getString("sender");
-                    String timestamp = jsonObject.getString("timestamp");
-                    String msgContent = jsonObject.getString("message");
+                String sender = jsonObject.getString("sender");
+                String timestamp = jsonObject.getString("timestamp");
+                String msgContent = jsonObject.getString("message");
 
-                    String formattedMessage = String.format("(%s) %s diz: %s", timestamp, sender, msgContent);
-                    safePrintln("\n" + formattedMessage);
-                    safePrint(target + ">> ");
-                }
-            };
-
-            // Consome as mensagens da fila do usuário atual
-            channel.basicConsume(currentUser, true, consumer);
-
-            while (true) {
-                // Recebe a mensagem do usuário
-                message = sc.nextLine();
-
-                if (message.toLowerCase().equals("sair")) {
-                    break;
-                }
-
-                if (message.startsWith("@")) {
-                    target = message.substring(1).trim();
-                    safePrint(target + ">> ");
-                    continue;
-                }
-
-                if (target.isEmpty()) {
-                    safePrintln("Por favor, defina um destinatário usando @nome.");
-                    safePrint(">> ");
-                    continue;
-                }
-
-                if (message.isEmpty() || target.isEmpty()) {
-                    safePrint(target + ">> ");
-                    continue;
-                }
-
-                String formattedMessage = String.format(
-                        "{\"sender\":\"%s\", \"timestamp\":\"%s\", \"message\":\"%s\"}",
-                        currentUser,
-                        new SimpleDateFormat("dd/MM/yyyy 'às' HH:mm:ss").format(new Date()),
-                        message);
-
-                channel.basicPublish("", target, null, formattedMessage.getBytes(StandardCharsets.UTF_8));
-
+                String formattedMessage = String.format("(%s) %s diz: %s", timestamp, sender, msgContent);
+                safePrintln("\n" + formattedMessage);
                 safePrint(target + ">> ");
             }
+        };
 
-            sc.close();
-            channel.close();
-            connection.close();
+        channel.basicConsume(currentUser, true, consumer);
+
+        while (true) {
+            // Recebe a mensagem do usuário
+            message = sc.nextLine();
+
+            if (message.toLowerCase().equals("sair")) {
+                break;
+            }
+
+            if (message.startsWith("@")) {
+                target = message.substring(1).trim();
+                safePrint(target + ">> ");
+                continue;
+            }
+
+            if (target.isEmpty()) {
+                safePrintln("Por favor, defina um destinatário usando @nome.");
+                safePrint(">> ");
+                continue;
+            }
+
+            if (message.isEmpty() || target.isEmpty()) {
+                safePrint(target + ">> ");
+                continue;
+            }
+
+            String formattedMessage = String.format(
+                    "{\"sender\":\"%s\", \"timestamp\":\"%s\", \"message\":\"%s\"}",
+                    currentUser,
+                    new SimpleDateFormat("dd/MM/yyyy 'às' HH:mm:ss").format(new Date()),
+                    message);
+
+            channel.basicPublish("", target, null, formattedMessage.getBytes(StandardCharsets.UTF_8));
+
+            safePrint(target + ">> ");
         }
+
+        sc.close();
+        channel.close();
+        connection.close();
     }
 
     private static void safePrintln(String s) {
