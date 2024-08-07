@@ -26,6 +26,13 @@ public class Main {
         System.out.print("User: ");
         currentUser = sc.nextLine();
 
+        while (currentUser.isEmpty()) {
+            System.out.print("\033[H\033[2J");
+            System.out.println("Usuário inválido. Por favor, tente novamente.");
+            System.out.print("Usuário: ");
+            currentUser = sc.nextLine();
+        }
+
         // Declara a fila para o usuário atual
         channel.queueDeclare(currentUser, false, false, false, null);
         safePrintln("\nLogado com sucesso!");
